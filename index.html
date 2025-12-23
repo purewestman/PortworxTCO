@@ -54,7 +54,7 @@
             BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area 
         } from 'recharts';
         import { 
-            Server, Database, AlertTriangle, Activity, ArrowRight, DollarSign, Calculator, Settings, CheckCircle2, ShieldCheck 
+            Server, Database, AlertTriangle, Activity, ArrowRight, DollarSign, Calculator, Settings, CheckCircle2, ShieldCheck, Coins, Lightbulb, XCircle
         } from 'lucide-react';
 
         // --- COMPONENTS ---
@@ -85,23 +85,27 @@
                 baseDataTB: 200,
                 annualDataGrowth: 0.20,
                 
-                // Unit Economics
+                // Unit Economics (Base prices in USD)
                 computeHourlyCost: 0.40,
                 storageCostPerTByear: 500,
                 backupCostPerTBmonth: 23,
                 
-                // People & Risk
+                // People & Risk (Base prices in USD)
                 adminSalary: 180000,
                 devHourlyRate: 100,
                 downtimeHourlyCost: 100000,
                 
-                // Licenses (List Prices)
+                // Licenses (List Prices in USD)
                 licenseCSI: 0,
                 licenseEssentials: 0,
                 licenseEnterprise: 5000,
                 
                 // Enterprise Discount
-                enterpriseDiscount: 0, 
+                enterpriseDiscount: 0,
+
+                // Currency Settings
+                currency: 'USD', // 'USD' or 'ZAR'
+                exchangeRate: 18.0, // Default 1 USD = 18 ZAR
             });
 
             // --- CONSTANTS (Multipliers) ---
@@ -142,6 +146,8 @@
             const results = useMemo(() => {
                 const totalNodes = config.clusterCount * config.nodesPerCluster;
                 const hoursPerYear = 8760;
+                
+                // Costs are calculated in BASE CURRENCY (USD) first
                 const computeCostPerNodeYear = config.computeHourlyCost * hoursPerYear;
                 const backupCostPerTByear = config.backupCostPerTBmonth * 12;
                 const entLicenseCost = config.licenseEnterprise * (1 - (config.enterpriseDiscount / 100));
@@ -210,7 +216,14 @@
                 return data;
             }, [config]);
 
-            const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+            const formatCurrency = (val) => {
+                const amount = config.currency === 'ZAR' ? val * config.exchangeRate : val;
+                return new Intl.NumberFormat(config.currency === 'ZAR' ? 'en-ZA' : 'en-US', { 
+                    style: 'currency', 
+                    currency: config.currency, 
+                    maximumFractionDigits: 0 
+                }).format(amount);
+            };
 
             // Chart Data Preparation
             const totalComparisonData = [
@@ -226,11 +239,22 @@
                 enterprise: results.enterprise.yearly[idx].total,
             }));
 
-            const detailBreakdownData = [
-                { category: 'Infrastructure', csi: results.csi.yearly.reduce((a,b)=>a+b.infra,0), ess: results.essentials.yearly.reduce((a,b)=>a+b.infra,0), ent: results.enterprise.yearly.reduce((a,b)=>a+b.infra,0) },
-                { category: 'Licenses', csi: results.csi.yearly.reduce((a,b)=>a+b.licenses,0), ess: results.essentials.yearly.reduce((a,b)=>a+b.licenses,0), ent: results.enterprise.yearly.reduce((a,b)=>a+b.licenses,0) },
-                { category: 'Ops & Risk', csi: results.csi.yearly.reduce((a,b)=>a+b.peopleRisk,0), ess: results.essentials.yearly.reduce((a,b)=>a+b.peopleRisk,0), ent: results.enterprise.yearly.reduce((a,b)=>a+b.peopleRisk,0) },
+            // Convert values for charts (recharts doesn't use the formatter automatically for data points)
+            const convert = (val) => config.currency === 'ZAR' ? val * config.exchangeRate : val;
+
+            const chartComparisonData = totalComparisonData.map(d => ({...d, value: convert(d.value)}));
+            const chartStackData = yearlyStackData.map(d => ({
+                year: d.year,
+                csi: convert(d.csi),
+                essentials: convert(d.essentials),
+                enterprise: convert(d.enterprise)
+            }));
+            const chartDetailData = [
+                { category: 'Infrastructure', csi: convert(results.csi.yearly.reduce((a,b)=>a+b.infra,0)), ess: convert(results.essentials.yearly.reduce((a,b)=>a+b.infra,0)), ent: convert(results.enterprise.yearly.reduce((a,b)=>a+b.infra,0)) },
+                { category: 'Licenses', csi: convert(results.csi.yearly.reduce((a,b)=>a+b.licenses,0)), ess: convert(results.essentials.yearly.reduce((a,b)=>a+b.licenses,0)), ent: convert(results.enterprise.yearly.reduce((a,b)=>a+b.licenses,0)) },
+                { category: 'Ops & Risk', csi: convert(results.csi.yearly.reduce((a,b)=>a+b.peopleRisk,0)), ess: convert(results.essentials.yearly.reduce((a,b)=>a+b.peopleRisk,0)), ent: convert(results.enterprise.yearly.reduce((a,b)=>a+b.peopleRisk,0)) },
             ];
+
 
             return (
                 <div className="flex flex-col h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden">
@@ -264,23 +288,80 @@
                 <div className="flex flex-1 overflow-hidden">
                     {/* SIDEBAR CONFIGURATION */}
                     <aside className="w-80 bg-slate-900 border-r border-slate-800 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar shrink-0">
+                    
+                    {/* CURRENCY SETTINGS */}
+                    <div className="mb-6 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                        <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <Coins className="w-4 h-4 text-orange-500" /> Currency
+                        </h3>
+                        <div className="flex gap-2 mb-3">
+                            <button 
+                                onClick={() => setConfig({...config, currency: 'USD'})}
+                                className={`flex-1 py-1 text-xs font-bold rounded ${config.currency === 'USD' ? 'bg-orange-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+                            >
+                                USD ($)
+                            </button>
+                            <button 
+                                onClick={() => setConfig({...config, currency: 'ZAR'})}
+                                className={`flex-1 py-1 text-xs font-bold rounded ${config.currency === 'ZAR' ? 'bg-orange-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+                            >
+                                ZAR (R)
+                            </button>
+                        </div>
+                        {config.currency === 'ZAR' && (
+                            <div>
+                                <label className="block text-xs text-slate-400 mb-1">USD to ZAR Rate</label>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-500 font-mono">1$ =</span>
+                                    <input 
+                                        type="number" 
+                                        value={config.exchangeRate}
+                                        onChange={(e) => setConfig({...config, exchangeRate: Number(e.target.value)})}
+                                        className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-orange-500 outline-none"
+                                    />
+                                    <span className="text-xs text-slate-500 font-mono">R</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div>
                         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                         <Settings className="w-4 h-4" /> Environment
                         </h3>
                         <div className="space-y-4">
+                        
+                        {/* CUSTOMIZABLE WORKER NODES */}
+                        <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <label className="block text-xs text-slate-400 mb-1">Clusters</label>
+                                <input 
+                                    type="number" 
+                                    value={config.clusterCount}
+                                    onChange={(e) => setConfig({...config, clusterCount: Number(e.target.value)})}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 focus:ring-1 focus:ring-orange-500 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-slate-400 mb-1">Nodes/Cluster</label>
+                                <input 
+                                    type="number" 
+                                    value={config.nodesPerCluster}
+                                    onChange={(e) => setConfig({...config, nodesPerCluster: Number(e.target.value)})}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 focus:ring-1 focus:ring-orange-500 outline-none"
+                                />
+                            </div>
+                        </div>
                         <div>
-                            <label className="block text-xs text-slate-400 mb-1">Total Worker Nodes</label>
-                            <div className="flex items-center gap-2">
+                            <label className="block text-xs text-slate-500 mb-1">Total Nodes (Calculated)</label>
                             <input 
                                 type="number" 
                                 value={config.clusterCount * config.nodesPerCluster}
                                 readOnly
-                                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-slate-400 cursor-not-allowed"
+                                className="w-full bg-slate-800/50 border border-slate-800 rounded px-3 py-2 text-slate-500 cursor-not-allowed"
                             />
-                            </div>
-                            <p className="text-[10px] text-slate-500 mt-1">Calculated as {config.clusterCount} clusters × {config.nodesPerCluster} nodes</p>
                         </div>
+
                         <div>
                             <label className="block text-xs text-slate-400 mb-1">Year 1 Data (TB)</label>
                             <input 
@@ -304,7 +385,7 @@
 
                     <div className="border-t border-slate-800 pt-6">
                         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                        <DollarSign className="w-4 h-4" /> Costs & Risk
+                        <DollarSign className="w-4 h-4" /> Costs & Risk (USD Base)
                         </h3>
                         <div className="space-y-4">
                         <div>
@@ -341,7 +422,7 @@
                     
                     <div className="mt-auto p-4 bg-blue-900/20 border border-blue-900/50 rounded-lg">
                         <p className="text-xs text-blue-200">
-                        <strong>Tip:</strong> Adjust the discount slider to find the break-even point against CSI-Only.
+                        <strong>Tip:</strong> All inputs remain in USD base values. The currency toggle only converts the displayed totals.
                         </p>
                     </div>
                     </aside>
@@ -409,13 +490,16 @@
                             <SectionTitle title="3-Year TCO Comparison" icon={DollarSign} />
                             <div className="h-72">
                                 <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={totalComparisonData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                <BarChart data={chartComparisonData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                                     <XAxis type="number" hide />
                                     <YAxis dataKey="name" type="category" width={120} tick={{fill: '#94a3b8'}} />
                                     <Tooltip 
                                     contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} 
-                                    formatter={(value) => formatCurrency(value)}
+                                    formatter={(value) => formatCurrency(config.currency === 'ZAR' ? value / config.exchangeRate : value)} // Tooltip hack: we pass converted value, format expects raw if we didn't double convert. Actually formatCurrency handles conversion.
+                                    // Better approach: Tooltip just needs to display formatted string. 
+                                    // Since data is already converted in chartComparisonData, we should simple format it as currency without re-multiplying.
+                                    // Let's create a display-only formatter.
                                     />
                                     <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={40}>
                                     </Bar>
@@ -429,7 +513,7 @@
                             <SectionTitle title="Cumulative Spend Over Time" icon={Activity} />
                             <div className="h-72">
                                 <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={yearlyStackData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <AreaChart data={chartStackData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                     <defs>
                                     <linearGradient id="colorCSI" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.8}/>
@@ -441,9 +525,12 @@
                                     </linearGradient>
                                     </defs>
                                     <XAxis dataKey="year" tick={{fill: '#94a3b8'}} />
-                                    <YAxis tickFormatter={(val) => `$${val/1000000}M`} tick={{fill: '#94a3b8'}} />
+                                    <YAxis tickFormatter={(val) => {
+                                        const millions = val / 1000000;
+                                        return `${config.currency === 'ZAR' ? 'R' : '$'}${millions.toFixed(1)}M`;
+                                    }} tick={{fill: '#94a3b8'}} />
                                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} formatter={(value) => formatCurrency(value)} />
+                                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} formatter={(value) => new Intl.NumberFormat(config.currency === 'ZAR' ? 'en-ZA' : 'en-US', { style: 'currency', currency: config.currency, maximumFractionDigits: 0 }).format(value)} />
                                     <Legend />
                                     <Area type="monotone" dataKey="csi" stroke="#94a3b8" fillOpacity={1} fill="url(#colorCSI)" name="CSI-Only" />
                                     <Area type="monotone" dataKey="enterprise" stroke="#f97316" fillOpacity={1} fill="url(#colorEnt)" name="Enterprise" />
@@ -529,11 +616,14 @@
                             <SectionTitle title="Cost Structure Breakdown (3-Year Total)" icon={Calculator} />
                             <div className="h-80">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={detailBreakdownData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                <BarChart data={chartDetailData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                                     <XAxis dataKey="category" tick={{fill: '#cbd5e1'}} />
-                                    <YAxis tickFormatter={(val) => `$${val/1000000}M`} tick={{fill: '#cbd5e1'}} />
-                                    <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} formatter={(value) => formatCurrency(value)} />
+                                    <YAxis tickFormatter={(val) => {
+                                        const millions = val / 1000000;
+                                        return `${config.currency === 'ZAR' ? 'R' : '$'}${millions.toFixed(1)}M`;
+                                    }} tick={{fill: '#cbd5e1'}} />
+                                    <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} formatter={(value) => new Intl.NumberFormat(config.currency === 'ZAR' ? 'en-ZA' : 'en-US', { style: 'currency', currency: config.currency, maximumFractionDigits: 0 }).format(value)} />
                                     <Legend />
                                     <Bar dataKey="csi" name="CSI-Only" fill="#94a3b8" />
                                     <Bar dataKey="ess" name="PX Essentials" fill="#60a5fa" />
@@ -570,19 +660,130 @@
                         </div>
 
                         <Card className="p-6 bg-slate-800/50">
-                            <h3 className="font-bold text-lg mb-2">ROI Narrative</h3>
-                            <ul className="list-disc pl-5 space-y-2 text-slate-300">
-                                <li>
-                                <strong className="text-blue-400">Essentials</strong> acts as a massive cost saver ({formatCurrency(results.csi.total - results.essentials.total)} savings) by reducing storage overhead and backup footprint compared to raw CSI.
-                                </li>
-                                <li>
-                                <strong className="text-orange-400">Enterprise</strong> requires a license investment, but drastically reduces operational risk. 
-                                {results.enterprise.total > results.csi.total 
-                                    ? " While the modeled financial TCO is slightly higher at list price, the reduction in downtime (8h → 1h) and RPO (Hours → Zero) justifies the premium for production-critical apps."
-                                    : " With the applied discount, Enterprise is cheaper than CSI-Only while delivering superior DR and automation capabilities."}
-                                </li>
-                            </ul>
+                            <SectionTitle title="Strategic Analysis: Cost Drivers" icon={Activity} />
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    <h3 className="font-bold text-lg mb-4 text-white">Why Costs Differ (Technical)</h3>
+                                    <div className="space-y-6">
+                                        <div className="relative pl-4 border-l-2 border-slate-700">
+                                            <h4 className="text-slate-300 text-sm font-bold uppercase tracking-wide mb-1">CSI-Only (High Overhead)</h4>
+                                            <p className="text-sm text-slate-400 leading-relaxed">
+                                                Lacks Kubernetes-aware capacity management, leading to <strong>thick provisioning</strong> and manual safety buffers.
+                                                <br/>
+                                                <span className="text-xs text-red-400 block mt-1">Impact: 1.8x Storage Overhead, 1.2x Compute Overhead</span>
+                                            </p>
+                                        </div>
+                                        <div className="relative pl-4 border-l-2 border-blue-500/50">
+                                            <h4 className="text-blue-400 text-sm font-bold uppercase tracking-wide mb-1">PX Essentials (Transitional)</h4>
+                                            <p className="text-sm text-slate-400 leading-relaxed">
+                                                Introduces <strong>thin provisioning</strong> and basic storage pooling, improving utilization by removing some manual buffers.
+                                                <br/>
+                                                <span className="text-xs text-blue-400 block mt-1">Impact: 1.6x Storage Overhead, 1.1x Compute Overhead</span>
+                                            </p>
+                                        </div>
+                                        <div className="relative pl-4 border-l-2 border-orange-500">
+                                            <h4 className="text-orange-400 text-sm font-bold uppercase tracking-wide mb-1">PX Enterprise (Optimized)</h4>
+                                            <p className="text-sm text-slate-400 leading-relaxed">
+                                                <strong>Autopilot</strong> automates capacity expansion (trimming buffers). <strong>PX-Store</strong> optimizes volume placement for density.
+                                                <br/>
+                                                <span className="text-xs text-orange-400 block mt-1">Impact: 1.4x Storage Overhead, 1.05x Compute Overhead</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h3 className="font-bold text-lg mb-4 text-white">ROI Summary</h3>
+                                    <ul className="list-disc pl-5 space-y-4 text-slate-300">
+                                        <li>
+                                            <strong className="text-blue-400 block mb-1">Essentials is the Efficiency Play</strong> 
+                                            It acts as a massive cost saver ({formatCurrency(results.csi.total - results.essentials.total)} savings) simply by reducing the storage waste and backup footprint inherent in raw CSI implementations.
+                                        </li>
+                                        <li>
+                                            <strong className="text-orange-400 block mb-1">Enterprise is the Strategic Play</strong> 
+                                            While it requires a license investment, it drastically reduces operational risk. 
+                                            {results.enterprise.total > results.csi.total 
+                                                ? " Although the modeled TCO is slightly higher at list price, the reduction in downtime (8h → 1h) and RPO (Hours → Zero) justifies the premium for production-critical apps."
+                                                : " With the applied discount, Enterprise is cheaper than CSI-Only while delivering superior DR and automation capabilities."}
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
                         </Card>
+
+                        {/* NEW STRATEGIC ADVISORY CARD */}
+                        <Card className="p-6 bg-slate-800/50 border border-orange-500/20">
+                            <SectionTitle title="Strategic Advisory: The Case for PX-CSI over Essentials" icon={Lightbulb} />
+                            
+                            <div className="grid grid-cols-1 gap-6">
+                                {/* WARNING BANNER */}
+                                <div className="bg-slate-900/50 p-4 rounded-lg border border-red-900/30 flex items-start gap-4">
+                                    <div className="p-2 bg-red-500/10 rounded-lg shrink-0">
+                                        <XCircle className="w-6 h-6 text-red-500" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-white font-bold text-lg">Warning: Portworx Essentials is End-of-Life</h4>
+                                        <p className="text-slate-400 text-sm mt-1">
+                                            Essentials is discontinued as of Portworx 3.2.2.1. Clusters cannot upgrade to newer releases, and upon license expiry, customers lose core capabilities (creating volumes/snapshots). It is a "dead end" for new projects.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                    {/* COLUMN 1: ARCHITECTURE & OPS */}
+                                    <div>
+                                        <h4 className="font-bold text-white mb-4 border-b border-slate-700 pb-2">Technical & Operational Superiority</h4>
+                                        <ul className="space-y-4">
+                                            <li className="flex gap-3">
+                                                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <strong className="text-slate-200 block text-sm">Cleaner Kubernetes-Native Architecture</strong>
+                                                    <span className="text-slate-400 text-xs leading-relaxed block mt-1">
+                                                        PX-CSI stores metadata as Kubernetes CustomResources (PureVolume, PureSnapshot) in etcd, completely removing the external KVDB. This makes it easier to reason about and troubleshoot via standard <code>kubectl</code>.
+                                                    </span>
+                                                </div>
+                                            </li>
+                                            <li className="flex gap-3">
+                                                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <strong className="text-slate-200 block text-sm">Operational Simplicity (No pxctl)</strong>
+                                                    <span className="text-slate-400 text-xs leading-relaxed block mt-1">
+                                                        In PX-CSI, the legacy <code>pxctl</code> tool is deprecated. Operations are managed declaratively via YAML and standard CSI objects, aligning perfectly with GitOps workflows and modern K8s teams.
+                                                    </span>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                    {/* COLUMN 2: INTEGRATION & MIGRATION */}
+                                    <div>
+                                        <h4 className="font-bold text-white mb-4 border-b border-slate-700 pb-2">Pure Storage Integration & Future</h4>
+                                        <ul className="space-y-4">
+                                            <li className="flex gap-3">
+                                                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <strong className="text-slate-200 block text-sm">Purpose-Built for FlashArray/FlashBlade</strong>
+                                                    <span className="text-slate-400 text-xs leading-relaxed block mt-1">
+                                                        PX-CSI is explicitly positioned as the orchestrator for Pure backends, shipping with default StorageClasses (e.g., <code>px-fa-direct-access</code>) and rapid feature iteration (NVMe-oF, File Services, Cloning).
+                                                    </span>
+                                                </div>
+                                            </li>
+                                            <li className="flex gap-3">
+                                                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <strong className="text-slate-200 block text-sm">Clear Migration Path</strong>
+                                                    <span className="text-slate-400 text-xs leading-relaxed block mt-1">
+                                                        There is a supported path to flip Essentials clusters to PX-CSI mode, allowing you to resume upgrades and access new features. Essentials is a stop-gap; PX-CSI is the long-term supported platform.
+                                                    </span>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+
                         </div>
                     )}
 
