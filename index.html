@@ -27,18 +27,22 @@
     <!-- Custom Styles for Scrollbars -->
     <style>
         body { margin: 0; padding: 0; overflow: hidden; }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #0f172a; 
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background-color: #334155; 
-            border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background-color: #475569; 
+        
+        /* Only apply custom scrollbar styling on desktop where mouse usage is common */
+        @media (min-width: 768px) {
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: #0f172a; 
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background-color: #334155; 
+                border-radius: 4px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background-color: #475569; 
+            }
         }
     </style>
 </head>
@@ -259,38 +263,38 @@
             return (
                 <div className="flex flex-col h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden">
                 {/* HEADER */}
-                <header className="flex items-center justify-between px-6 py-4 bg-slate-950 border-b border-slate-800 shrink-0">
-                    <div className="flex items-center gap-3">
-                    <div className="bg-orange-600 p-2 rounded-lg">
-                        <Calculator className="w-6 h-6 text-white" />
+                <header className="flex flex-col md:flex-row items-center justify-between px-6 py-4 bg-slate-950 border-b border-slate-800 shrink-0 gap-4 md:gap-0">
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <div className="bg-orange-600 p-2 rounded-lg shrink-0">
+                            <Calculator className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="min-w-0">
+                            <h1 className="text-xl font-bold tracking-tight truncate">Portworx Value Calculator</h1>
+                            <p className="text-xs text-slate-400 truncate">3-Year ROI Journey: CSI → Essentials → Enterprise</p>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-xl font-bold tracking-tight">Portworx Value Calculator</h1>
-                        <p className="text-xs text-slate-400">3-Year ROI Journey: CSI → Essentials → Enterprise</p>
-                    </div>
-                    </div>
-                    <div className="flex gap-2">
-                    <button 
-                        onClick={() => setActiveTab('dashboard')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
-                    >
-                        ROI Dashboard
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('details')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'details' ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
-                    >
-                        Detailed Breakdown
-                    </button>
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <button 
+                            onClick={() => setActiveTab('dashboard')}
+                            className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors text-center ${activeTab === 'dashboard' ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                        >
+                            ROI Dashboard
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('details')}
+                            className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors text-center ${activeTab === 'details' ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                        >
+                            Detailed Breakdown
+                        </button>
                     </div>
                 </header>
 
-                <div className="flex flex-1 overflow-hidden">
+                <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden relative">
                     {/* SIDEBAR CONFIGURATION */}
-                    <aside className="w-80 bg-slate-900 border-r border-slate-800 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar shrink-0">
+                    <aside className="w-full md:w-80 bg-slate-900 border-r-0 md:border-r border-b md:border-b-0 border-slate-800 p-6 flex flex-col gap-6 shrink-0 md:h-full md:overflow-y-auto custom-scrollbar">
                     
                     {/* CURRENCY SETTINGS */}
-                    <div className="mb-6 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                    <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
                         <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
                             <Coins className="w-4 h-4 text-orange-500" /> Currency
                         </h3>
@@ -420,7 +424,7 @@
                         </div>
                     </div>
                     
-                    <div className="mt-auto p-4 bg-blue-900/20 border border-blue-900/50 rounded-lg">
+                    <div className="mt-auto p-4 bg-blue-900/20 border border-blue-900/50 rounded-lg hidden md:block">
                         <p className="text-xs text-blue-200">
                         <strong>Tip:</strong> All inputs remain in USD base values. The currency toggle only converts the displayed totals.
                         </p>
@@ -428,10 +432,10 @@
                     </aside>
 
                     {/* MAIN CONTENT AREA */}
-                    <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                    <main className="flex-1 p-4 md:p-8 md:h-full md:overflow-y-auto custom-scrollbar">
                     
                     {activeTab === 'dashboard' && (
-                        <div className="max-w-6xl mx-auto space-y-8">
+                        <div className="max-w-6xl mx-auto space-y-8 pb-8">
                         
                         {/* TOP: 3-YEAR SUMMARY CARDS */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -488,20 +492,17 @@
                             {/* 3-Year TCO Comparison Bar Chart */}
                             <Card className="p-6">
                             <SectionTitle title="3-Year TCO Comparison" icon={DollarSign} />
-                            <div className="h-72">
+                            <div className="h-64 md:h-72">
                                 <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={chartComparisonData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                                     <XAxis type="number" hide />
-                                    <YAxis dataKey="name" type="category" width={120} tick={{fill: '#94a3b8'}} />
+                                    <YAxis dataKey="name" type="category" width={100} tick={{fill: '#94a3b8', fontSize: 12}} />
                                     <Tooltip 
                                     contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} 
-                                    formatter={(value) => formatCurrency(config.currency === 'ZAR' ? value / config.exchangeRate : value)} // Tooltip hack: we pass converted value, format expects raw if we didn't double convert. Actually formatCurrency handles conversion.
-                                    // Better approach: Tooltip just needs to display formatted string. 
-                                    // Since data is already converted in chartComparisonData, we should simple format it as currency without re-multiplying.
-                                    // Let's create a display-only formatter.
+                                    formatter={(value) => formatCurrency(config.currency === 'ZAR' ? value / config.exchangeRate : value)}
                                     />
-                                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={40}>
+                                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={32}>
                                     </Bar>
                                 </BarChart>
                                 </ResponsiveContainer>
@@ -511,9 +512,9 @@
                             {/* Yearly Spend Trend */}
                             <Card className="p-6">
                             <SectionTitle title="Cumulative Spend Over Time" icon={Activity} />
-                            <div className="h-72">
+                            <div className="h-64 md:h-72">
                                 <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartStackData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <AreaChart data={chartStackData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                     <defs>
                                     <linearGradient id="colorCSI" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.8}/>
@@ -524,11 +525,11 @@
                                         <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
                                     </linearGradient>
                                     </defs>
-                                    <XAxis dataKey="year" tick={{fill: '#94a3b8'}} />
+                                    <XAxis dataKey="year" tick={{fill: '#94a3b8', fontSize: 12}} />
                                     <YAxis tickFormatter={(val) => {
                                         const millions = val / 1000000;
                                         return `${config.currency === 'ZAR' ? 'R' : '$'}${millions.toFixed(1)}M`;
-                                    }} tick={{fill: '#94a3b8'}} />
+                                    }} tick={{fill: '#94a3b8', fontSize: 12}} />
                                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                                     <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} formatter={(value) => new Intl.NumberFormat(config.currency === 'ZAR' ? 'en-ZA' : 'en-US', { style: 'currency', currency: config.currency, maximumFractionDigits: 0 }).format(value)} />
                                     <Legend />
@@ -611,18 +612,18 @@
                     )}
 
                     {activeTab === 'details' && (
-                        <div className="max-w-6xl mx-auto space-y-8">
+                        <div className="max-w-6xl mx-auto space-y-8 pb-8">
                         <Card className="p-6">
                             <SectionTitle title="Cost Structure Breakdown (3-Year Total)" icon={Calculator} />
-                            <div className="h-80">
+                            <div className="h-64 md:h-80">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={chartDetailData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                <BarChart data={chartDetailData} margin={{ top: 20, right: 10, left: 0, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                                    <XAxis dataKey="category" tick={{fill: '#cbd5e1'}} />
+                                    <XAxis dataKey="category" tick={{fill: '#cbd5e1', fontSize: 12}} />
                                     <YAxis tickFormatter={(val) => {
                                         const millions = val / 1000000;
                                         return `${config.currency === 'ZAR' ? 'R' : '$'}${millions.toFixed(1)}M`;
-                                    }} tick={{fill: '#cbd5e1'}} />
+                                    }} tick={{fill: '#cbd5e1', fontSize: 12}} />
                                     <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} formatter={(value) => new Intl.NumberFormat(config.currency === 'ZAR' ? 'en-ZA' : 'en-US', { style: 'currency', currency: config.currency, maximumFractionDigits: 0 }).format(value)} />
                                     <Legend />
                                     <Bar dataKey="csi" name="CSI-Only" fill="#94a3b8" />
